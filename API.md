@@ -289,3 +289,4 @@ All errors follow this format:
 - `404` - Not Found
 - `500` - Server Error
 
+

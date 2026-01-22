@@ -107,3 +107,4 @@ JWT_SECRET: Set
 - [ ] User is redirected to dashboard
 - [ ] User data is stored in localStorage
 
+
