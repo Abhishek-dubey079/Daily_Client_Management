@@ -4,11 +4,19 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
 import clientRoutes from './routes/clients.js';
 
-dotenv.config();
+// Only load dotenv in development (not in Vercel production)
+// Vercel provides environment variables via process.env automatically
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  // Dynamic import to avoid bundling dotenv in production
+  import('dotenv').then((dotenv) => {
+    dotenv.default.config();
+  }).catch(() => {
+    // dotenv is optional, continue without it
+  });
+}
 
 const app = express();
 
@@ -68,53 +76,76 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'API is running' });
 });
 
-// MongoDB Connection - Serverless-friendly
-let isConnected = false;
+// MongoDB Connection - Serverless-friendly with globalThis caching
+// Use globalThis to cache connection across serverless function invocations
+// Cache connection in globalThis (persists across function invocations in Vercel)
+if (!globalThis.mongooseConnection) {
+  globalThis.mongooseConnection = null;
+  globalThis.mongooseConnectionPromise = null;
+}
 
 const connectDB = async () => {
-  // If already connected, reuse the connection
-  if (isConnected && mongoose.connection.readyState === 1) {
+  // If already connected and ready, reuse the connection
+  if (globalThis.mongooseConnection && mongoose.connection.readyState === 1) {
     return;
   }
 
-  try {
-    if (!process.env.MONGODB_URI) {
-      console.error('ERROR: MONGODB_URI is not set in environment variables!');
-      throw new Error('MONGODB_URI is not set');
-    }
-    
-    // If connection exists but is disconnected, close it first
-    if (mongoose.connection.readyState !== 0) {
-      await mongoose.connection.close();
-    }
-    
-    console.log('Connecting to MongoDB...');
-    await mongoose.connect(process.env.MONGODB_URI, {
-      // Serverless-friendly options
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-    });
-    
-    isConnected = true;
-    console.log('✅ MongoDB connected successfully');
-    console.log('Database:', mongoose.connection.name);
-    
-    // Handle connection events
-    mongoose.connection.on('error', (err) => {
-      console.error('MongoDB connection error:', err);
-      isConnected = false;
-    });
-    
-    mongoose.connection.on('disconnected', () => {
-      console.log('MongoDB disconnected');
-      isConnected = false;
-    });
-    
-  } catch (error) {
-    console.error('❌ MongoDB connection error:', error.message);
-    isConnected = false;
-    throw error;
+  // If connection is in progress, wait for it
+  if (globalThis.mongooseConnectionPromise) {
+    return globalThis.mongooseConnectionPromise;
   }
+
+  // Create new connection promise
+  globalThis.mongooseConnectionPromise = (async () => {
+    try {
+      if (!process.env.MONGODB_URI) {
+        console.error('ERROR: MONGODB_URI is not set in environment variables!');
+        throw new Error('MONGODB_URI is not set');
+      }
+      
+      // If connection exists but is disconnected, close it first
+      if (mongoose.connection.readyState !== 0) {
+        try {
+          await mongoose.connection.close();
+        } catch (closeError) {
+          // Ignore close errors
+        }
+      }
+      
+      console.log('Connecting to MongoDB...');
+      await mongoose.connect(process.env.MONGODB_URI, {
+        // Serverless-friendly options
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+        maxPoolSize: 1, // Single connection for serverless
+        minPoolSize: 0,
+      });
+      
+      globalThis.mongooseConnection = mongoose.connection;
+      console.log('✅ MongoDB connected successfully');
+      console.log('Database:', mongoose.connection.name);
+      
+      // Handle connection events
+      mongoose.connection.on('error', (err) => {
+        console.error('MongoDB connection error:', err);
+        globalThis.mongooseConnection = null;
+      });
+      
+      mongoose.connection.on('disconnected', () => {
+        console.log('MongoDB disconnected');
+        globalThis.mongooseConnection = null;
+      });
+      
+      return mongoose.connection;
+    } catch (error) {
+      console.error('❌ MongoDB connection error:', error.message);
+      globalThis.mongooseConnection = null;
+      globalThis.mongooseConnectionPromise = null;
+      throw error;
+    }
+  })();
+
+  return globalThis.mongooseConnectionPromise;
 };
 
 // Connect to MongoDB on first request (lazy connection for serverless)
@@ -127,12 +158,12 @@ app.use(async (req, res, next) => {
     }
     
     // Check if we need to connect
-    if (!isConnected || mongoose.connection.readyState !== 1) {
+    if (!globalThis.mongooseConnection || mongoose.connection.readyState !== 1) {
       await connectDB();
     }
     next();
   } catch (error) {
-    console.error('MongoDB connection middleware error:', error);
+    console.error('MongoDB connection middleware error:', error.message);
     return res.status(500).json({ 
       success: false,
       message: 'Database connection error. Please try again later.' 
