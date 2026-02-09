@@ -14,7 +14,7 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     // List of allowed origins
     const allowedOrigins = [
       'http://localhost:3000',
@@ -22,7 +22,7 @@ const corsOptions = {
       process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
       process.env.VITE_APP_URL || null
     ].filter(Boolean);
-    
+
     if (allowedOrigins.includes(origin) || origin.includes('vercel.app')) {
       callback(null, true);
     } else {
@@ -58,7 +58,7 @@ const connectDB = async () => {
       console.error('ERROR: MONGODB_URI is not set in environment variables!');
       throw new Error('MONGODB_URI is not set');
     }
-    
+
     console.log('Connecting to MongoDB...');
     await mongoose.connect(process.env.MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
@@ -95,28 +95,50 @@ app.use('/clients', clientRoutes);
 // Health check
 app.get('/health', async (req, res) => {
   try {
+    console.log('--- Health Check Starting ---');
+    console.log('MONGODB_URI is', process.env.MONGODB_URI ? 'SET' : 'MISSING');
+    console.log('JWT_SECRET is', process.env.JWT_SECRET ? 'SET' : 'MISSING');
+
     await ensureConnection();
-    res.json({ status: 'OK', message: 'API is running', connected: isConnected });
+    res.json({
+      status: 'OK',
+      message: 'API is running',
+      connected: isConnected,
+      env: {
+        mongodb: !!process.env.MONGODB_URI,
+        jwt: !!process.env.JWT_SECRET,
+        node_env: process.env.NODE_ENV
+      }
+    });
   } catch (error) {
-    res.status(500).json({ status: 'ERROR', message: 'Database connection failed', error: error.message });
+    console.error('Health Check Error:', error.message);
+    res.status(500).json({
+      status: 'ERROR',
+      message: 'Health check failed',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'production' ? null : error.stack
+    });
   }
 });
 
 // Export as serverless function
 export default async (req, res) => {
   try {
+    // Add request logging for Vercel
+    console.log(`[Vercel Function] Request received: ${req.method} ${req.url}`);
+
     // Ensure MongoDB connection
     await ensureConnection();
-    
+
     // Handle the request with Express app
     return app(req, res);
   } catch (error) {
     console.error('Serverless function error:', error);
     if (!res.headersSent) {
-      return res.status(500).json({ 
+      return res.status(500).json({
         success: false,
-        message: 'Server error', 
-        error: process.env.NODE_ENV === 'production' ? 'Internal server error' : error.message 
+        message: 'Internal Server Error during initialization',
+        error: error.message
       });
     }
   }
