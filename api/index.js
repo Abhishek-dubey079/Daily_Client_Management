@@ -88,12 +88,12 @@ const ensureConnection = async () => {
   }
 };
 
-// Routes - Using /api prefix
-app.use('/auth', authRoutes);
-app.use('/clients', clientRoutes);
+// Routes - Using /api prefix to match Vercel routing
+app.use('/api/auth', authRoutes);
+app.use('/api/clients', clientRoutes);
 
 // Health check
-app.get('/health', async (req, res) => {
+app.get('/api/health', async (req, res) => {
   try {
     console.log('--- Health Check Starting ---');
     console.log('MONGODB_URI is', process.env.MONGODB_URI ? 'SET' : 'MISSING');
