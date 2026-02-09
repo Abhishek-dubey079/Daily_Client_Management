@@ -58,7 +58,14 @@ const clientSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
-  }
+  },
+  history: [{
+    date: { type: Date, default: Date.now },
+    type: { type: String, enum: ['Work', 'Payment', 'Cycle'], default: 'Cycle' },
+    amount: { type: Number, default: 0 },
+    status: { type: String },
+    description: { type: String }
+  }]
 }, {
   timestamps: true
 });
@@ -82,5 +89,6 @@ clientSchema.pre('save', function(next) {
 const Client = mongoose.model('Client', clientSchema);
 
 export default Client;
+
 
 

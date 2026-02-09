@@ -215,7 +215,7 @@ router.post('/:id/payment', async (req, res) => {
 
     // Update client payment info
     client.receivedAmount = (client.receivedAmount || 0) + paymentAmount;
-    
+
     if (client.receivedAmount >= client.totalAmount) {
       client.receivedAmount = client.totalAmount;
       client.status = 'Completed';
@@ -261,6 +261,82 @@ router.put('/:id/complete', async (req, res) => {
     });
   } catch (error) {
     console.error('Complete client error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Complete a work cycle, record history, and schedule next
+router.post('/:id/complete-cycle', async (req, res) => {
+  try {
+    const {
+      completionDate,
+      paymentAmount,
+      notes,
+      isFullPayment,
+      nextTotalAmount
+    } = req.body;
+
+    const client = await Client.findOne({
+      _id: req.params.id,
+      userId: req.user._id
+    });
+
+    if (!client) {
+      return res.status(404).json({ message: 'Client not found' });
+    }
+
+    const actualDate = completionDate ? new Date(completionDate) : new Date();
+    const amountPaid = parseFloat(paymentAmount) || 0;
+
+    // 1. Record History
+    const historyEntry = {
+      date: actualDate,
+      type: 'Cycle',
+      amount: amountPaid,
+      status: isFullPayment ? 'Completed' : 'Partial',
+      description: notes || `Work completed${isFullPayment ? '' : ' - Partial Payment'}`
+    };
+
+    client.history.push(historyEntry);
+
+    // 2. Also record a payment if amount > 0
+    if (amountPaid > 0) {
+      const payment = new Payment({
+        userId: req.user._id,
+        clientId: client._id,
+        amount: amountPaid,
+        paymentDate: actualDate,
+        notes: notes || 'Entry from cycle completion'
+      });
+      await payment.save();
+    }
+
+    // 3. Reset for next cycle
+    client.workDate = actualDate;
+
+    // Calculate next date from completion date
+    if (client.repeatAfterDays > 0) {
+      const nextDate = new Date(actualDate);
+      nextDate.setDate(nextDate.getDate() + client.repeatAfterDays);
+      client.nextWorkDate = nextDate;
+    } else {
+      client.nextWorkDate = null;
+    }
+
+    // Refresh payment info for NEW cycle
+    client.totalAmount = nextTotalAmount || client.totalAmount;
+    client.receivedAmount = 0; // Refresh payment option
+    client.status = 'Pending';
+    client.remainingAmount = client.totalAmount;
+
+    await client.save();
+
+    res.json({
+      message: 'Cycle completed and reset for next time',
+      client
+    });
+  } catch (error) {
+    console.error('Complete cycle error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

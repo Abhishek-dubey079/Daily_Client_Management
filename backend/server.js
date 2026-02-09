@@ -2,15 +2,8 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { existsSync } from 'fs';
 import authRoutes from './routes/auth.js';
 import clientRoutes from './routes/clients.js';
-
-// ES module __dirname equivalent
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -30,14 +23,9 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.trim().length === 0) {
 
 const app = express();
 
-// CORS Configuration - Allow requests from frontend (local and Vercel)
+// CORS Configuration - Allow requests from frontend (local development)
 const corsOptions = {
-  origin: [
-    'http://localhost:3000', 
-    'http://127.0.0.1:3000',
-    'https://daily-client-management.vercel.app',
-    /\.vercel\.app$/
-  ],
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -65,31 +53,6 @@ app.get('/health', (req, res) => {
 // API health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'API is running' });
-});
-
-// Serve static files from React app (frontend/dist)
-// Handle both local development and Vercel deployment paths
-const frontendDistPath = path.join(__dirname, '../frontend/dist');
-
-// Check if dist folder exists, log for debugging
-if (existsSync(frontendDistPath)) {
-  console.log('✅ Frontend dist folder found at:', frontendDistPath);
-  app.use(express.static(frontendDistPath));
-} else {
-  console.warn('⚠️ Frontend dist folder not found at:', frontendDistPath);
-  console.warn('   Make sure to run "npm run build" in the frontend folder');
-}
-
-// Catch-all handler: send back React's index.html file for any non-API routes
-// This allows React Router to handle client-side routing
-app.get('*', (req, res) => {
-  // Don't serve index.html for API routes
-  if (req.path.startsWith('/api')) {
-    return res.status(404).json({ message: 'API route not found' });
-  }
-  
-  // Serve index.html for all other routes (SPA routing)
-  res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
 
 // MongoDB Connection
