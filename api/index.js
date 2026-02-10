@@ -123,6 +123,15 @@ app.get('/api/health', async (req, res) => {
 
 // Export as serverless function
 export default async (req, res) => {
+  // Simple diagnostic check before ANY logic
+  if (req.url === '/api/simple-check' || req.url === '/api/simple-check/') {
+    return res.json({
+      status: 'simple-check-ok',
+      time: new Date().toISOString(),
+      url: req.url
+    });
+  }
+
   try {
     // Add request logging for Vercel
     console.log(`[Vercel Function] Request received: ${req.method} ${req.url}`);
