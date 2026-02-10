@@ -62,7 +62,7 @@ const connectDB = async () => {
       console.error('ERROR: MONGODB_URI is not set in environment variables!');
       process.exit(1);
     }
-    
+
     console.log('Connecting to MongoDB...');
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('✅ MongoDB connected successfully');
@@ -70,7 +70,7 @@ const connectDB = async () => {
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
     console.error('Full error:', error);
-    process.exit(1);
+    // Do NOT exit process; let it retry or fail gracefully
   }
 };
 

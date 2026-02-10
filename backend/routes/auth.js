@@ -59,17 +59,17 @@ router.post('/register', async (req, res) => {
       console.log('   User ID:', user._id);
       console.log('   Password hashed:', user.password ? 'Yes' : 'No');
       console.log('   Password hash length:', user.password ? user.password.length : 0);
-      
+
       // Verify password was actually hashed
       if (!user.password || user.password.length < 10) {
         throw new Error('Password was not hashed correctly during save');
       }
-      
+
       // Verify it's a bcrypt hash (starts with $2a$, $2b$, or $2y$)
       if (!user.password.startsWith('$2')) {
         throw new Error('Password hash format is invalid');
       }
-      
+
       console.log('✅ Password hash verified');
     } catch (saveError) {
       console.error('❌ Error saving user:', saveError);
@@ -101,12 +101,12 @@ router.post('/register', async (req, res) => {
     console.error('Error message:', error.message);
     console.error('Error code:', error.code);
     console.error('Error stack:', error.stack);
-    
+
     // Handle duplicate key error (MongoDB)
     if (error.code === 11000) {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
-    
+
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -114,23 +114,23 @@ router.post('/register', async (req, res) => {
 // Login
 router.post('/login', async (req, res) => {
   let user = null;
-  
+
   try {
     // Extract and validate request body
     const { email, password } = req.body || {};
 
     // Validate input
     if (!email || typeof email !== 'string' || email.trim().length === 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Email is required and must be a valid string' 
+        message: 'Email is required and must be a valid string'
       });
     }
 
     if (!password || typeof password !== 'string' || password.length === 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Password is required and must be a valid string' 
+        message: 'Password is required and must be a valid string'
       });
     }
 
@@ -139,87 +139,83 @@ router.post('/login', async (req, res) => {
 
     // Verify JWT_SECRET is loaded
     if (!process.env.JWT_SECRET || process.env.JWT_SECRET.trim().length === 0) {
-      return res.status(500).json({ 
+      return res.status(500).json({
         success: false,
-        message: 'Server configuration error. Please contact administrator.' 
+        message: 'Server configuration error. Please contact administrator.'
       });
     }
 
-    // Verify MongoDB connection
-    const connectionState = mongoose.connection.readyState;
-    if (connectionState !== 1) {
-      return res.status(500).json({ 
-        success: false,
-        message: 'Database connection error. Please try again later.' 
-      });
+    // Verify MongoDB connection (Optional: Log if not connected, but let Mongoose handle buffering)
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('⚠️ Warning: MongoDB not fully connected yet (State: ' + mongoose.connection.readyState + '). Request might hang or fail.');
     }
 
     // Find user with null checks
     try {
       // Use findOne without lean() so we can update the document
       const userDoc = await User.findOne({ email: normalizedEmail });
-      
+
       if (!userDoc) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: 'Invalid email or password' 
+          message: 'Invalid email or password'
         });
       }
 
       // Convert to object for logging (but keep userDoc for updates)
       user = userDoc.toObject();
-      
+
       // TEMPORARY LOG: User found
       console.log('✅ User found');
       // TEMPORARY LOG: Password format
       console.log('   Password format:', user.password ? (user.password.startsWith('$2a$') || user.password.startsWith('$2b$') ? 'Hashed' : 'Plain-text') : 'Missing');
-      
+
       // ENFORCE PASSWORD INTEGRITY: Auto-hash plain-text passwords
-      const isPlainText = user.password && typeof user.password === 'string' && 
-                         !user.password.startsWith('$2a$') && 
-                         !user.password.startsWith('$2b$') &&
-                         user.password.length < 60;
-      
+      const isPlainText = user.password && typeof user.password === 'string' &&
+        !user.password.startsWith('$2a$') &&
+        !user.password.startsWith('$2b$') &&
+        user.password.length < 60;
+
       if (isPlainText) {
         console.log('⚠️ Plain-text password detected - auto-hashing...');
-        
+
         try {
           // Hash the plain-text password
           const hashedPassword = await bcrypt.hash(user.password, 10);
-          
+
           if (!hashedPassword || (!hashedPassword.startsWith('$2a$') && !hashedPassword.startsWith('$2b$'))) {
             throw new Error('Password hashing failed');
           }
-          
+
           // Update user record in MongoDB
           userDoc.password = hashedPassword;
           await userDoc.save();
-          
+
           // Update user object for comparison
           user.password = hashedPassword;
-          
+
           console.log('✅ Password hashed and saved');
         } catch (hashError) {
           console.error('❌ Error hashing plain-text password:', hashError.message);
-          return res.status(500).json({ 
+          return res.status(500).json({
             success: false,
-            message: 'Password security update failed. Please try again.' 
+            message: 'Password security update failed. Please try again.'
           });
         }
       }
-      
+
       // Verify password exists and is valid hash
       if (!user.password || typeof user.password !== 'string') {
-        return res.status(500).json({ 
+        return res.status(500).json({
           success: false,
-          message: 'User account error. Please contact administrator.' 
+          message: 'User account error. Please contact administrator.'
         });
       }
 
       if (!user.password.startsWith('$2a$') && !user.password.startsWith('$2b$')) {
-        return res.status(500).json({ 
+        return res.status(500).json({
           success: false,
-          message: 'User account error. Please contact administrator.' 
+          message: 'User account error. Please contact administrator.'
         });
       }
 
@@ -231,9 +227,9 @@ router.post('/login', async (req, res) => {
       console.error('   Error message:', dbError.message);
       console.error('   Error code:', dbError.code);
       console.error('   Error stack:', dbError.stack);
-      return res.status(500).json({ 
+      return res.status(500).json({
         success: false,
-        message: 'Database error. Please try again later.' 
+        message: 'Database error. Please try again later.'
       });
     }
 
@@ -242,41 +238,41 @@ router.post('/login', async (req, res) => {
     try {
       // Validate inputs before comparison
       if (!password || typeof password !== 'string') {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: 'Invalid password format' 
+          message: 'Invalid password format'
         });
       }
-      
-      if (!user.password || typeof user.password !== 'string' || 
-          (!user.password.startsWith('$2a$') && !user.password.startsWith('$2b$'))) {
-        return res.status(500).json({ 
+
+      if (!user.password || typeof user.password !== 'string' ||
+        (!user.password.startsWith('$2a$') && !user.password.startsWith('$2b$'))) {
+        return res.status(500).json({
           success: false,
-          message: 'Password verification error. Please try again.' 
+          message: 'Password verification error. Please try again.'
         });
       }
-      
+
       // TEMPORARY LOG: Password comparison
       console.log('🔐 Comparing password...');
-      
+
       // Use bcrypt.compare directly with error handling
       isMatch = await bcrypt.compare(password, user.password);
-      
+
       // TEMPORARY LOG: Password comparison result
       console.log('   Comparison result:', isMatch ? 'Match' : 'No match');
 
     } catch (bcryptError) {
       console.error('❌ Bcrypt comparison error:', bcryptError.message);
-      return res.status(500).json({ 
+      return res.status(500).json({
         success: false,
-        message: 'Password verification error. Please try again.' 
+        message: 'Password verification error. Please try again.'
       });
     }
 
     if (!isMatch) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Invalid email or password' 
+        message: 'Invalid email or password'
       });
     }
 
@@ -287,16 +283,16 @@ router.post('/login', async (req, res) => {
       if (!user._id) {
         throw new Error('User ID is missing');
       }
-      
+
       const userIdString = user._id.toString();
-      
+
       // Verify JWT_SECRET
       if (!process.env.JWT_SECRET || process.env.JWT_SECRET.trim().length === 0) {
         throw new Error('JWT_SECRET is not configured');
       }
-      
+
       const jwtSecret = process.env.JWT_SECRET;
-      
+
       token = jwt.sign(
         { userId: userIdString },
         jwtSecret,
@@ -308,9 +304,9 @@ router.post('/login', async (req, res) => {
       }
 
     } catch (jwtError) {
-      return res.status(500).json({ 
+      return res.status(500).json({
         success: false,
-        message: 'Token generation error. Please try again.' 
+        message: 'Token generation error. Please try again.'
       });
     }
 
@@ -325,12 +321,12 @@ router.post('/login', async (req, res) => {
         name: user.name || 'Chachu'
       }
     };
-    
+
     // Final validation before sending
     if (!responseData.token || !responseData.user || !responseData.user.id) {
-      return res.status(500).json({ 
+      return res.status(500).json({
         success: false,
-        message: 'Login response error. Please try again.' 
+        message: 'Login response error. Please try again.'
       });
     }
 
@@ -339,7 +335,7 @@ router.post('/login', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Login error:', error.message);
-    return res.status(500).json({ 
+    return res.status(500).json({
       success: false,
       message: 'Server error. Please try again later.'
     });

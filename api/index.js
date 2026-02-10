@@ -44,46 +44,47 @@ app.use((req, res, next) => {
   next();
 });
 
-// MongoDB Connection (reuse connection if exists)
-let isConnected = false;
+// MongoDB Connection (Serverless qualified)
+let cachedDb = null;
 
 const connectDB = async () => {
-  if (isConnected && mongoose.connection.readyState === 1) {
-    console.log('✅ MongoDB already connected');
-    return;
+  if (cachedDb && mongoose.connection.readyState === 1) {
+    console.log('✅ MongoDB already connected (Cached)');
+    return cachedDb;
+  }
+
+  console.log('Connecting to MongoDB...');
+
+  if (!process.env.MONGODB_URI) {
+    console.error('❌ MONGODB_URI is not set!');
+    throw new Error('MONGODB_URI is not set');
   }
 
   try {
-    if (!process.env.MONGODB_URI) {
-      console.error('ERROR: MONGODB_URI is not set in environment variables!');
-      throw new Error('MONGODB_URI is not set');
-    }
-
-    console.log('Connecting to MongoDB...');
-    await mongoose.connect(process.env.MONGODB_URI, {
+    const opts = {
+      bufferCommands: false, // Disable Mongoose buffering to fail fast if not connected
       serverSelectionTimeoutMS: 5000,
-    });
-    isConnected = true;
-    console.log('✅ MongoDB connected successfully');
-    console.log('Database:', mongoose.connection.name);
+    };
+
+    const conn = await mongoose.connect(process.env.MONGODB_URI, opts);
+
+    cachedDb = conn;
+    console.log(`✅ MongoDB connected successfully: ${conn.connection.host}`);
+    return conn;
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
-    isConnected = false;
+    console.error('Full error:', error);
     throw error;
   }
 };
 
-// Connect to MongoDB on first request
-let connectionPromise = null;
+// Ensure connection helper
 const ensureConnection = async () => {
-  if (!connectionPromise) {
-    connectionPromise = connectDB();
-  }
   try {
-    await connectionPromise;
+    await connectDB();
   } catch (error) {
-    // Reset promise on error so we can retry
-    connectionPromise = null;
+    console.error('Failed to ensure database connection:', error.message);
+    // Do NOT exit process in serverless; let the request fail gracefully or retry
     throw error;
   }
 };
@@ -99,14 +100,27 @@ app.get('/api/health', async (req, res) => {
     console.log('MONGODB_URI is', process.env.MONGODB_URI ? 'SET' : 'MISSING');
     console.log('JWT_SECRET is', process.env.JWT_SECRET ? 'SET' : 'MISSING');
 
-    await ensureConnection();
+    // Attempt connection but don't fail the request if it fails
+    let dbStatus = 'disconnected';
+    try {
+      if (mongoose.connection.readyState === 1) {
+        dbStatus = 'connected';
+      } else {
+        await connectDB(); // Try to connect
+        dbStatus = 'connected';
+      }
+    } catch (e) {
+      dbStatus = 'error: ' + e.message;
+      console.error('Health check DB connection failed:', e.message);
+    }
+
     res.json({
       status: 'OK',
       message: 'API is running',
-      connected: isConnected,
+      db_status: dbStatus,
       env: {
-        mongodb: !!process.env.MONGODB_URI,
-        jwt: !!process.env.JWT_SECRET,
+        mongodb_set: !!process.env.MONGODB_URI,
+        jwt_set: !!process.env.JWT_SECRET,
         node_env: process.env.NODE_ENV
       }
     });
