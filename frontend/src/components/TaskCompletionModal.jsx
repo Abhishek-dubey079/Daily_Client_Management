@@ -120,7 +120,7 @@ const TaskCompletionModal = ({ client, onClose, onComplete }) => {
                         />
                     </div>
 
-                    <div className="flex gap-3 pt-4 border-t">
+                    <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t">
                         <button
                             type="button"
                             onClick={onClose}

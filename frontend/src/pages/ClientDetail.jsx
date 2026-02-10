@@ -82,18 +82,18 @@ const ClientDetail = () => {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <button
                 onClick={() => navigate('/dashboard')}
                 className="text-gray-600 hover:text-gray-900"
               >
-                ← Back
+                ← <span className="hidden sm:inline">Back</span>
               </button>
-              <h1 className="text-2xl font-bold text-gray-900">Client Details</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Client Details</h1>
             </div>
             <button
               onClick={logout}
-              className="text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="text-gray-600 hover:text-gray-900 px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:bg-gray-100 transition-colors text-sm sm:text-base"
             >
               Logout
             </button>
@@ -104,36 +104,38 @@ const ClientDetail = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Client Info Card */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex justify-between items-start mb-4">
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">
             <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">{client.name}</h2>
-              <span
-                className={`px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(
-                  client.status
-                )}`}
-              >
-                {client.status}
-              </span>
+              <div className="flex items-center gap-3 mb-2">
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">{client.name}</h2>
+                <span
+                  className={`px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(
+                    client.status
+                  )}`}
+                >
+                  {client.status}
+                </span>
+              </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               <button
                 onClick={() => setShowPaymentModal(true)}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex-1 sm:flex-none whitespace-nowrap"
               >
                 Record Payment
               </button>
               {client.status !== 'Completed' && (
                 <button
                   onClick={handleMarkComplete}
-                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex-1 sm:flex-none whitespace-nowrap"
                 >
                   Mark Complete
                 </button>
               )}
               <button
                 onClick={() => setShowEditForm(true)}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex-1 sm:flex-none whitespace-nowrap"
               >
                 Edit Client
               </button>

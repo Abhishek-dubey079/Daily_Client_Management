@@ -38,11 +38,11 @@ const ClientCard = ({ client, onEdit, onDelete, onPayment, onTaskComplete, onVie
   const urgent = isUrgent();
 
   return (
-    <div className={`bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 ${urgent ? 'ring-2 ring-red-500 bg-red-50' : isReminderDue ? 'ring-2 ring-yellow-400' : ''
+    <div className={`bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 sm:p-6 ${urgent ? 'ring-2 ring-red-500 bg-red-50' : isReminderDue ? 'ring-2 ring-yellow-400' : ''
       }`}>
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-xl font-semibold text-gray-900">{client.name}</h3>
             {isReminderDue && !urgent && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 animate-pulse">
@@ -106,34 +106,34 @@ const ClientCard = ({ client, onEdit, onDelete, onPayment, onTaskComplete, onVie
         </div>
       </div>
 
-      <div className="flex gap-2 mt-4 pt-4 border-t">
+      <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 mt-4 pt-4 border-t">
         <button
           onClick={onView}
-          className="flex-1 bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 text-sm transition-colors"
+          className="col-span-2 sm:col-span-1 sm:flex-1 bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 text-sm transition-colors"
         >
           View
         </button>
         <button
           onClick={onPayment}
-          className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 text-sm transition-colors"
+          className="col-span-1 sm:flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 text-sm transition-colors"
         >
           Payment
         </button>
         <button
           onClick={onTaskComplete}
-          className="flex-1 bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 text-sm font-bold transition-colors"
+          className="col-span-1 sm:flex-1 bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 text-sm font-bold transition-colors"
         >
           Done
         </button>
         <button
           onClick={onEdit}
-          className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm transition-colors"
+          className="col-span-1 sm:flex-1 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm transition-colors"
         >
           Edit
         </button>
         <button
           onClick={onDelete}
-          className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm transition-colors"
+          className="col-span-1 sm:flex-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm transition-colors"
         >
           Delete
         </button>
